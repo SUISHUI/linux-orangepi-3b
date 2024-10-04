@@ -1,230 +1,173 @@
-pkgbase=linux-orangepi-3b
-pkgver=6.6
-pkgrel=1
-_newversion=false
-_stopbuild=false # Will also stop if ${_newversion} is true
-_srcname="linux-${pkgver/%.0/}"
-_kernelname="${pkgbase#linux}"
-_desc="AArch64 multi-platform"
+pkgbase=linux-opi3b
+_srcname=linux-6.11
+_kernelname=${pkgbase#linux}
+_desc="Orangepi 3B linux kernel"
+pkgver=6.11.1
+pkgrel=2
 arch=('aarch64')
 url="http://www.kernel.org/"
 license=('GPL2')
-makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'dtc')
+makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'uboot-tools' 'dtc' 'aarch64-linux-gnu-gcc')
 options=('!strip')
-source=("${_srcname}.tar.gz::https://cdn.kernel.org/pub/linux/kernel/v6.x/${_srcname}.tar.gz"
-  '1001-arm64-dts-rockchip-add-opi3b.patch'
-  '1002-net-wireless-uwe5622-driver.patch'
-  'config'
-  'linux.preset'
-  '60-linux.hook'
-  '90-linux.hook')
-md5sums=('85f2d2fc402a365ff4ad33339db42fb8'
-  'f62c153f970c1deb1c9ddbb00d38148f'
-  'a22be4d45b965ddb523052ce8415b868'
-  'e23d7394738cba7b6dcfea21edde0fe1'
-  '86d4a35722b5410e3b29fc92dae15d4b'
-  'ce6c81ad1ad1f8b333fd6077d47abdaf'
-  '3dc88030a8f2f5a5f97266d99b149f77')
+source=("http://www.kernel.org/pub/linux/kernel/v6.x/${_srcname}.tar.xz"
+        "http://www.kernel.org/pub/linux/kernel/v6.x/patch-${pkgver}.xz"
+        "https://github.com/SUISHUI/uwe5622_driver/archive/refs/tags/6.11.tar.gz"
+        'config'
+        'linux.preset')
+md5sums=('612a9feef07be8663098a0a58cddf7a6'
+         '46dba7cdd905a48d384b075ed352d206'
+         '2d2279e12270d1834ca8ecbfecb7aebb'
+         '1ce91cbb7f43d707cd09bb65ab467ee1'
+         '33ba82001fca579d43172a6db25d6aca')
 
 prepare() {
-  apply_patches() {
-    local PATCH
-    for PATCH in "${source[@]}"; do
-      PATCH="${PATCH%%::*}"
-      PATCH="${PATCH##*/}"
-      [[ ${PATCH} = $1*.patch ]] || continue
-      msg2 "Applying patch: ${PATCH}..."
-      patch -N -p1 <"../${PATCH}"
-    done
-  }
+  cd $_srcname
 
-  cd ${_srcname}
+  echo "Setting version..."
+  echo "-$pkgrel" > localversion.10-pkgrel
+  echo "${pkgbase#linux}" > localversion.20-pkgname
 
-  # Assorted Manjaro ARM patches
-  apply_patches 1
+  # add upstream patch
+  git apply --whitespace=nowarn ../patch-${pkgver}
 
-  apply_patches 2
+  # wifi驱动 
+  mv ${srcdir}/uwe5622_driver-6.11 drivers/net/wireless/uwe5622
+  sed -i /endif/i\source\ \"drivers/net/wireless/uwe5622/Kconfig\" drivers/net/wireless/Kconfig
+  echo 'obj-$(CONFIG_SPARD_WLAN_SUPPORT) += uwe5622/' >> drivers/net/wireless/Makefile
 
-  # Apply our kernel configuration
-  cat "${srcdir}/config" >.config
-
-  # Add pkgrel to extraversion
-  sed -ri "s|^(EXTRAVERSION =)(.*)|\1 \2-${pkgrel}|" Makefile
-
-  # Don't run depmod on "make install", we'll do that ourselves in packaging
-  sed -i '2iexit 0' scripts/depmod.sh
+  cat "${srcdir}/config" > ./.config
+  make ${MAKEFLAGS} olddefconfig
 }
 
 build() {
   cd ${_srcname}
 
-  # Get the kernel version
-  if [[ "${_newversion}" = false ]]; then
-    make prepare
-  fi
+  # get kernel version
+  make ${MAKEFLAGS} prepare
+  make -s kernelrelease > version
 
-  # Configure the kernel; adjust the line below to your choice
-  # or simply manually edit the ".config" file
-  if [[ "${_newversion}" = true ]]; then
-    make menuconfig # CLI menu for configuration
-  fi
-  #make nconfig       # New CLI menu for configuration
-  #make xconfig       # X-based configuration
-  #make oldconfig     # Using old config from previous kernel version
-
-  # Stash the configuration (use with new major kernel version)
-  if [[ "${_newversion}" = true ]]; then
-    cp ./.config /var/tmp/${pkgbase}.config
-    cp ./.config "${srcdir}/config"
-  fi
-
-  # Stop here, which is useful to configure the kernel
-  if [[ "${_newversion}" = true || "${_stopbuild}" = true ]]; then
-    msg "Stopping build"
-    return 1
-  fi
-
-  # Enable to create an all-inclusive build
-  #yes "" | make config
-
-  # Build the kernel and the modules
+  # build!
   unset LDFLAGS
-  make ${MAKEFLAGS} Image modules
-
-  # Generate device tree blobs with symbols to support
-  # applying device tree overlays in U-Boot
+  make ${MAKEFLAGS} Image Image.gz modules
+  # Generate device tree blobs with symbols to support applying device tree overlays in U-Boot
   make ${MAKEFLAGS} DTC_FLAGS="-@" dtbs
 }
 
 _package() {
   pkgdesc="The Linux Kernel and modules - ${_desc}"
-  depends=('coreutils' 'kmod' 'initramfs')
-  optdepends=('crda: to set the correct wireless channels of your country'
-    'linux-firmware: additional firmware')
-  provides=('kernel26' "linux=${pkgver}")
-  conflicts=('kernel26' 'linux')
-  replaces=('linux-armv8' 'linux-aarch64')
-  backup=("etc/mkinitcpio.d/${pkgbase}.preset")
+  depends=('coreutils' 'linux-firmware' 'kmod' 'mkinitcpio>=0.7')
+  optdepends=('wireless-regdb: to set the correct wireless channels of your country')
+  provides=("linux=${pkgver}" "KSMBD-MODULE" "WIREGUARD-MODULE")
+  conflicts=('linux')
   install=${pkgname}.install
 
-  cd ${_srcname}
+  cd $_srcname
+  local kernver="$(<version)"
+  local modulesdir="$pkgdir/usr/lib/modules/$kernver"
 
-  KARCH=arm64
-
-  # get kernel version
-  _kernver="$(make kernelrelease)"
-  _basekernel=${_kernver%%-*}
-  _basekernel=${_basekernel%.*}
-
-  mkdir -p "${pkgdir}"/{boot,usr/lib/modules}
-  make INSTALL_MOD_PATH="${pkgdir}/usr" modules_install
+  echo "Installing boot image and dtbs..."
+  install -Dm644 arch/arm64/boot/Image{,.gz} -t "${pkgdir}/boot"
   make INSTALL_DTBS_PATH="${pkgdir}/boot/dtbs" dtbs_install
-  cp arch/$KARCH/boot/Image "${pkgdir}/boot"
 
-  # make room for external modules
-  local _extramodules="extramodules-${_basekernel}${_kernelname}"
-  ln -s "../${_extramodules}" "${pkgdir}/usr/lib/modules/${_kernver}/extramodules"
+  echo "Installing modules..."
+  make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 DEPMOD=/doesnt/exist modules_install
 
-  # add real version for building modules and running depmod from hook
-  echo "${_kernver}" |
-    install -Dm644 /dev/stdin "${pkgdir}/usr/lib/modules/${_extramodules}/version"
-
-  # remove build and source links
-  rm "${pkgdir}"/usr/lib/modules/${_kernver}/build
-
-  # now we call depmod...
-  depmod -b "${pkgdir}/usr" -F System.map "${_kernver}"
+  # remove build link
+  rm "$modulesdir"/build
 
   # sed expression for following substitutions
   local _subst="
     s|%PKGBASE%|${pkgbase}|g
-    s|%KERNVER%|${_kernver}|g
-    s|%EXTRAMODULES%|${_extramodules}|g
+    s|%KERNVER%|${kernver}|g
   "
 
   # install mkinitcpio preset file
   sed "${_subst}" ../linux.preset |
     install -Dm644 /dev/stdin "${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
 
-  # install pacman hooks
-  sed "${_subst}" ../60-linux.hook |
-    install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/60-${pkgbase}.hook"
-  sed "${_subst}" ../90-linux.hook |
-    install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/90-${pkgbase}.hook"
+  # rather than use another hook (90-linux.hook) rely on mkinitcpio's 90-mkinitcpio-install.hook
+  # which avoids a double run of mkinitcpio that can occur
+  install -d "${pkgdir}/usr/lib/initcpio/"
+  echo "dummy file to trigger mkinitcpio to run" > "${pkgdir}/usr/lib/initcpio/$(<version)"
 }
 
 _package-headers() {
   pkgdesc="Header files and scripts for building modules for linux kernel - ${_desc}"
   provides=("linux-headers=${pkgver}")
   conflicts=('linux-headers')
-  replaces=('linux-aarch64-headers')
 
-  cd ${_srcname}
-  local _builddir="${pkgdir}/usr/lib/modules/${_kernver}/build"
+  cd $_srcname
+  local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
 
-  install -Dt "${_builddir}" -m644 Makefile .config Module.symvers
-  install -Dt "${_builddir}/kernel" -m644 kernel/Makefile
-
-  mkdir "${_builddir}/.tmp_versions"
-
-  cp -t "${_builddir}" -a include scripts
-
-  install -Dt "${_builddir}/arch/${KARCH}" -m644 arch/${KARCH}/Makefile
-  install -Dt "${_builddir}/arch/${KARCH}/kernel" -m644 arch/${KARCH}/kernel/asm-offsets.s
-  install -Dt "${_builddir}" -m644 vmlinux
-
-  cp -t "${_builddir}/arch/${KARCH}" -a arch/${KARCH}/include
-  mkdir -p "${_builddir}/arch/arm"
-  cp -t "${_builddir}/arch/arm" -a arch/arm/include
-
-  install -Dt "${_builddir}/drivers/md" -m644 drivers/md/*.h
-  install -Dt "${_builddir}/net/mac80211" -m644 net/mac80211/*.h
-
-  # http://bugs.archlinux.org/task/13146
-  install -Dt "${_builddir}/drivers/media/i2c" -m644 drivers/media/i2c/msp3400-driver.h
-
-  # http://bugs.archlinux.org/task/20402
-  install -Dt "${_builddir}/drivers/media/usb/dvb-usb" -m644 drivers/media/usb/dvb-usb/*.h
-  install -Dt "${_builddir}/drivers/media/dvb-frontends" -m644 drivers/media/dvb-frontends/*.h
-  install -Dt "${_builddir}/drivers/media/tuners" -m644 drivers/media/tuners/*.h
+  echo "Installing build files..."
+  install -Dt "$builddir" -m644 .config Makefile Module.symvers System.map \
+    localversion.* version vmlinux
+  install -Dt "$builddir/kernel" -m644 kernel/Makefile
+  install -Dt "$builddir/arch/arm64" -m644 arch/arm64/Makefile
+  cp -t "$builddir" -a scripts
 
   # add xfs and shmem for aufs building
-  mkdir -p "${_builddir}"/{fs/xfs,mm}
+  mkdir -p "$builddir"/{fs/xfs,mm}
 
-  # copy in Kconfig files
-  find . -name Kconfig\* -exec install -Dm644 {} "${_builddir}/{}" \;
+  echo "Installing headers..."
+  cp -t "$builddir" -a include
+  cp -t "$builddir/arch/arm64" -a arch/arm64/include
+  install -Dt "$builddir/arch/arm64/kernel" -m644 arch/arm64/kernel/asm-offsets.s
+  mkdir -p "$builddir/arch/arm"
+  cp -t "$builddir/arch/arm" -a arch/arm/include
 
-  # remove unneeded architectures
-  local _arch
-  for _arch in "${_builddir}"/arch/*/; do
-    [[ ${_arch} == */${KARCH}/ || ${_arch} == */arm/ ]] && continue
-    rm -r "${_arch}"
+  install -Dt "$builddir/drivers/md" -m644 drivers/md/*.h
+  install -Dt "$builddir/net/mac80211" -m644 net/mac80211/*.h
+
+  # https://bugs.archlinux.org/task/13146
+  install -Dt "$builddir/drivers/media/i2c" -m644 drivers/media/i2c/msp3400-driver.h
+
+  # https://bugs.archlinux.org/task/20402
+  install -Dt "$builddir/drivers/media/usb/dvb-usb" -m644 drivers/media/usb/dvb-usb/*.h
+  install -Dt "$builddir/drivers/media/dvb-frontends" -m644 drivers/media/dvb-frontends/*.h
+  install -Dt "$builddir/drivers/media/tuners" -m644 drivers/media/tuners/*.h
+
+  # https://bugs.archlinux.org/task/71392
+  install -Dt "$builddir/drivers/iio/common/hid-sensors" -m644 drivers/iio/common/hid-sensors/*.h
+
+  echo "Installing KConfig files..."
+  find . -name 'Kconfig*' -exec install -Dm644 {} "$builddir/{}" \;
+
+  echo "Removing unneeded architectures..."
+  local arch
+  for arch in "$builddir"/arch/*/; do
+    [[ $arch = */arm64/ || $arch == */arm/ ]] && continue
+    echo "Removing $(basename "$arch")"
+    rm -r "$arch"
   done
 
-  # remove documentation files
-  rm -r "${_builddir}/Documentation"
+  echo "Removing documentation..."
+  rm -r "$builddir/Documentation"
 
-  # remove now broken symlinks
-  find -L "${_builddir}" -type l -printf 'Removing %P\n' -delete
+  echo "Removing broken symlinks..."
+  find -L "$builddir" -type l -printf 'Removing %P\n' -delete
 
-  # strip scripts directory
+  echo "Removing loose objects..."
+  find "$builddir" -type f -name '*.o' -printf 'Removing %P\n' -delete
+
+  echo "Stripping build tools..."
   local file
   while read -rd '' file; do
     case "$(file -bi "$file")" in
-    application/x-sharedlib\;*) # Libraries (.so)
-      ${CROSS_COMPILE}strip $STRIP_SHARED "$file" ;;
-    application/x-archive\;*) # Libraries (.a)
-      ${CROSS_COMPILE}strip $STRIP_STATIC "$file" ;;
-    application/x-executable\;*) # Binaries
-      ${CROSS_COMPILE}strip $STRIP_BINARIES "$file" ;;
-    application/x-pie-executable\;*) # Relocatable binaries
-      ${CROSS_COMPILE}strip $STRIP_SHARED "$file" ;;
+      application/x-sharedlib\;*)      # Libraries (.so)
+        strip -v $STRIP_SHARED "$file" ;;
+      application/x-archive\;*)        # Libraries (.a)
+        strip -v $STRIP_STATIC "$file" ;;
+      application/x-executable\;*)     # Binaries
+        strip -v $STRIP_BINARIES "$file" ;;
+      application/x-pie-executable\;*) # Relocatable binaries
+        strip -v $STRIP_SHARED "$file" ;;
     esac
-  done < <(find "${_builddir}" -type f -perm -u+x ! -name vmlinux -print0 2>/dev/null)
-  ${CROSS_COMPILE}strip $STRIP_STATIC "${_builddir}/vmlinux"
+  done < <(find "$builddir" -type f -perm -u+x ! -name vmlinux -print0)
 
-  # remove unwanted files
-  find ${_builddir} -name '*.orig' -delete
+  echo "Adding symlink..."
+  mkdir -p "$pkgdir/usr/src"
+  ln -sr "$builddir" "$pkgdir/usr/src/$pkgbase"
 }
 
 pkgname=("${pkgbase}" "${pkgbase}-headers")

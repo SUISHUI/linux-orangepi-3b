@@ -10,7 +10,7 @@ WORKDIR /workspace
 # 安装应用程序的依赖
 #
 RUN pacman -Syu --noconfirm --noprogressbar && \
-    pacman -Sy --noconfirm --noprogressbar base-devel xmlto docbook-xsl inetutils uboot-tools dtc aarch64-linux-gnu-gcc just
+    pacman -Sy --noconfirm --noprogressbar base-devel xmlto docbook-xsl inetutils uboot-tools dtc aarch64-linux-gnu-gcc just bc git
 
 # 暴露应用程序的端口
 # EXPOSE 3000

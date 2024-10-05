@@ -12,8 +12,6 @@ WORKDIR /workspace
 RUN pacman -Syu --noconfirm --noprogressbar && \
     pacman -Sy --noconfirm --noprogressbar base-devel xmlto docbook-xsl inetutils uboot-tools dtc aarch64-linux-gnu-gcc just
 
-RUN useradd user -m && passwd -d user
-
 # 暴露应用程序的端口
 # EXPOSE 3000
 

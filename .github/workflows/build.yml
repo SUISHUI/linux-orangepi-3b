@@ -26,7 +26,7 @@ jobs:
             
             - name: 编译内核
               run: |
-                docker run --rm -v $GITHUB_WORKSPACE:/workspace -u user archlinux_builder:latest just build
+                docker run --rm -v $(pwd):/workspace -u $(id -u):$(id -g) archlinux_builder:latest just build
 
             - name: Archive artifact
               uses: actions/upload-artifact@v4

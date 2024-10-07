@@ -11,12 +11,12 @@ makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'uboot-tools' '
 options=('!strip')
 source=("http://www.kernel.org/pub/linux/kernel/v6.x/${_srcname}.tar.xz"
         "http://www.kernel.org/pub/linux/kernel/v6.x/patch-${pkgver}.xz"
-        "https://github.com/SUISHUI/uwe5622_driver/archive/refs/tags/6.11.tar.gz"
+        "https://github.com/SUISHUI/uwe5622_driver/archive/refs/tags/release-v1.0.0.tar.gz"
         'config'
         'linux.preset')
 md5sums=('612a9feef07be8663098a0a58cddf7a6'
          '46dba7cdd905a48d384b075ed352d206'
-         '2d2279e12270d1834ca8ecbfecb7aebb'
+         'df772ea6601f1b981303bbfe57867852'
          '1ce91cbb7f43d707cd09bb65ab467ee1'
          '33ba82001fca579d43172a6db25d6aca')
 
@@ -31,7 +31,7 @@ prepare() {
   git apply --whitespace=nowarn ../patch-${pkgver}
 
   # wifi驱动 
-  mv ${srcdir}/uwe5622_driver-6.11 drivers/net/wireless/uwe5622
+  mv ${srcdir}/uwe5622_driver-release-v1.0.0 drivers/net/wireless/uwe5622
   sed -i /endif/i\source\ \"drivers/net/wireless/uwe5622/Kconfig\" drivers/net/wireless/Kconfig
   echo 'obj-$(CONFIG_SPARD_WLAN_SUPPORT) += uwe5622/' >> drivers/net/wireless/Makefile
 

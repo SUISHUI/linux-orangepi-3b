@@ -1,0 +1,2 @@
+build:
+    makepkg -s -r

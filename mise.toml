@@ -1,4 +1,0 @@
-[env]
-CROSS_COMPILE = "aarch64-linux-gnu-"
-ARCH = "arm64"
-CARCH = "aarch64"

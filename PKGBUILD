@@ -20,15 +20,13 @@ source=("${_srcname}.tar.xz"
         '0001-arm64-dts-rockchip-disable-pwm0-on-rk3399-firefly.patch'
         '0002-pps-Compatibility-hack-should-be-X86-specific.patch'
         '0003-Revert-arm64-dts-rockchip-Move-rk3568-PCIe3-MSI-to-u.patch'
-        'linux-rockchip64-current.config'
         'config'
         'linux.preset')
 md5sums=('68e4bcbedcd5f3f3b89d9757dd68c863'
          'c064a0a49f4ed7d487d482ca73c75178'
          '416b7c6ef37cc0edb6cb67cf618360f5'
          'e3252a71f1f38f69799b0af9ad11ab8a'
-         '0d18550346a18237a32e394beb80e32b'
-         '72b3111c0a8e9e990f8edcb7ad6ff7b6'
+         'f117c5ae356ba12fae2d5d0a5b76914e'
          'f82b1a5732c416762bbc88e00b1a4b15')
 
 prepare() {
@@ -48,7 +46,7 @@ prepare() {
   git apply ../0002-pps-Compatibility-hack-should-be-X86-specific.patch
   git apply ../0003-Revert-arm64-dts-rockchip-Move-rk3568-PCIe3-MSI-to-u.patch
 
-  cat "${srcdir}/linux-rockchip64-current.config" > ./.config
+  cat "${srcdir}/config" > ./.config
 
   # 使用 scripts/config 工具直接修改 .config 文件
   ./scripts/config --enable CONFIG_BPF
@@ -56,7 +54,9 @@ prepare() {
   ./scripts/config --enable CONFIG_DEBUG_INFO
   ./scripts/config --enable CONFIG_DEBUG_INFO_BTF
   ./scripts/config --enable CONFIG_DEBUG_INFO_BTF_MODULES
-
+  ./scripts/config -e CONFIG_ANDROID_BINDER_IPC
+  ./scripts/config -e CONFIG_ANDROID_BINDERFS
+  ./scripts/config --set-str CONFIG_ANDROID_BINDER_DEVICES "binder,hwbinder,vndbinder"
   make olddefconfig
 }
 

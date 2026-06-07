@@ -49,14 +49,15 @@ prepare() {
   cat "${srcdir}/config" > ./.config
 
   # 使用 scripts/config 工具直接修改 .config 文件
-  ./scripts/config --enable CONFIG_BPF
-  ./scripts/config --enable CONFIG_BPF_SYSCALL
-  ./scripts/config --enable CONFIG_DEBUG_INFO
-  ./scripts/config --enable CONFIG_DEBUG_INFO_BTF
-  ./scripts/config --enable CONFIG_DEBUG_INFO_BTF_MODULES
+  ./scripts/config -e CONFIG_BPF
+  ./scripts/config -e CONFIG_BPF_SYSCALL
+  ./scripts/config -e CONFIG_DEBUG_INFO
+  ./scripts/config -e CONFIG_DEBUG_INFO_BTF
+  ./scripts/config -e CONFIG_DEBUG_INFO_BTF_MODULES
   ./scripts/config -e CONFIG_ANDROID_BINDER_IPC
   ./scripts/config -e CONFIG_ANDROID_BINDERFS
   ./scripts/config --set-str CONFIG_ANDROID_BINDER_DEVICES "binder,hwbinder,vndbinder"
+  
   make olddefconfig
 }
 

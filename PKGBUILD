@@ -51,9 +51,22 @@ prepare() {
   # 使用 scripts/config 工具直接修改 .config 文件
   ./scripts/config -e CONFIG_BPF
   ./scripts/config -e CONFIG_BPF_SYSCALL
+  ./scripts/config -e CONFIG_BPF_JIT
+  ./scripts/config -e CONFIG_CGROUPS
+  ./scripts/config -e CONFIG_KPROBES
+  ./scripts/config -e CONFIG_NET_INGRESS
+  ./scripts/config -e CONFIG_NET_EGRESS
+  ./scripts/config -e CONFIG_NET_SCH_INGRESS
+  ./scripts/config -e CONFIG_NET_CLS_BPF
+  ./scripts/config -e CONFIG_NET_CLS_ACT
+  ./scripts/config -e CONFIG_BPF_STREAM_PARSER
   ./scripts/config -e CONFIG_DEBUG_INFO
   ./scripts/config -e CONFIG_DEBUG_INFO_BTF
-  ./scripts/config -e CONFIG_DEBUG_INFO_BTF_MODULES
+  ./scripts/config -e CONFIG_KPROBE_EVENTS
+  ./scripts/config -e CONFIG_BPF_EVENTS
+  ./scripts/config -e CONFIG_VETH
+
+
   ./scripts/config -e CONFIG_ANDROID_BINDER_IPC
   ./scripts/config -e CONFIG_ANDROID_BINDERFS
   ./scripts/config --set-str CONFIG_ANDROID_BINDER_DEVICES "binder,hwbinder,vndbinder"
